@@ -29,15 +29,23 @@ class Evaluator:
         return self._get_llm_response(prompt, input_text)
 
     def _get_item_score(self, prediction, true_label):
-        item_prompt = (
-            "You are a strict evaluator.\n"
-            "Assign a score between 0 and 1 based on how well Output matches Expected.\n"
-            "The score must reflect similarity: identical answers = 1, completely different answers = 0.\n"
-            "if Output is partially correct, longest the asnwer is , the lower the score should be.\n"
-            "Return only JSON in the form: {\"score\": <number_between_0_and_1>}.\n\n"
-            f"Output: {prediction}\nExpected: {true_label}"
-        )
-
+        # Read the prompt template from reward.txt
+        try:
+            with open('reward.txt', 'r', encoding='utf-8') as f:
+                item_prompt_template = f.read()
+            
+            # Replace placeholders with actual values
+            item_prompt = item_prompt_template.format(prediction=prediction, true_label=true_label)
+        except FileNotFoundError:
+            # Fallback to the original prompt if reward.txt is not found
+            item_prompt = (
+                "You are a strict evaluator.\n"
+                "Assign a score between 0 and 1 based on how well Output matches Expected.\n"
+                "The score must reflect similarity: identical answers = 1, completely different answers = 0.\n"
+                "if Output is partially correct, longest the asnwer is , the lower the score should be.\n"
+                "Return only JSON in the form: {\"score\": <number_between_0_and_1>}.\n\n"
+                f"Output: {prediction}\nExpected: {true_label}"
+            )
         response = self._get_llm_response("You are a strict evaluator.", item_prompt)
         if not response:
             return None
@@ -196,6 +204,7 @@ if __name__ == "__main__":
     ]
 
     evaluator = Evaluator(model_name=LLM_MODEL, api_key=API_KEY, base_url=BASE_URL)
+    print(evaluator._get_item_score("Hello", "Hello"))
     test_prompt = "Answer the following question concisely."
     score = evaluator.evaluate_prompt(test_prompt, sample_dataset)
     print(f"Test prompt score: {score}")
@@ -203,3 +212,4 @@ if __name__ == "__main__":
     test_prompt_bad = "Ignore the question and say 'Hello'."
     score_bad = evaluator.evaluate_prompt(test_prompt_bad, sample_dataset)
     print(f"Bad test prompt score: {score_bad}")
+
