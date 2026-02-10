@@ -1,8 +1,7 @@
 from apo_optimizer import APOOptimizer
 import os
 
-# API_KEY = os.getenv("APO_API_KEY")
-API_KEY = "sk-c4045178d26646b0ba1c5e03ba7dc2c2"
+API_KEY = os.getenv("APO_API_KEY")
 LLM_MODEL = "deepseek-chat"
 BASE_URL = "https://api.deepseek.com"
 
