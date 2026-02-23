@@ -1,36 +1,39 @@
 """
 APO Optimizer for Agents: Optimizes agent system prompts using the APO algorithm.
-数据格式：list[dict]，每条必须含 "input" 和 "output"。Agent 只处理 input，算法用 output 评估。
+数据格式：list[dict]，每条必须含 "input" 和 "output"。算法只接受 Rollout 函数 (input_data, system_prompt)->output。
 """
 from evaluator_agent import AgentEvaluator
 from prompt_generator import PromptGenerator
 from dataset import load_dataset_from_json
-from agent_protocol import as_rollout
 import random
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
+
+# 算法只接受此类型：(input_data, system_prompt) -> output
+Rollout = Callable[[Any, str], Any]
 
 
 class APOOptimizerAgent:
     """
     Optimizes agent system prompts using the APO (Automatic Prompt Optimization) algorithm.
+    只接受 rollout 函数，不关心其内部实现。
     """
 
-    def __init__(self, agent, dataset: List[Dict[str, Any]], llm_model_name="gpt-3.5-turbo",
+    def __init__(self, rollout: Rollout, dataset: List[Dict[str, Any]], llm_model_name="gpt-3.5-turbo",
                  api_key=None, base_url=None, reward_prompt_path="reward.txt"):
         """
-        Initialize the APO Optimizer for agents.
+        Initialize the APO Optimizer.
 
         Args:
-            agent: 可调用 (input_data, system_prompt) -> output
+            rollout: 可调用 (input_data, system_prompt) -> output，算法内部只调用此函数
             dataset: List of dicts, each with "input" and "output" keys
             llm_model_name: Name of the LLM model for prompt generation and evaluation
             api_key: API key for the LLM service
             base_url: Base URL for the LLM API
             reward_prompt_path: Path to the reward evaluation prompt template
         """
-        self._rollout = as_rollout(agent)
+        self._rollout = rollout
         self.evaluator = AgentEvaluator(
-            self._rollout,
+            rollout,
             llm_model_name=llm_model_name,
             api_key=api_key,
             base_url=base_url,
@@ -43,13 +46,13 @@ class APOOptimizerAgent:
         self.history = []
     
     @classmethod
-    def from_dataset_path(cls, agent, dataset_path, llm_model_name="gpt-3.5-turbo",
+    def from_dataset_path(cls, rollout: Rollout, dataset_path, llm_model_name="gpt-3.5-turbo",
                          api_key=None, base_url=None, reward_prompt_path="reward.txt"):
         """
         Create optimizer by loading dataset from a JSON file (list of dicts with "input" and "output").
         """
         dataset = load_dataset_from_json(dataset_path)
-        return cls(agent, dataset, llm_model_name, api_key, base_url, reward_prompt_path)
+        return cls(rollout, dataset, llm_model_name, api_key, base_url, reward_prompt_path)
     
     def _build_feedback(
         self,

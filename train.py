@@ -1,7 +1,6 @@
 """
 货运 Agent APO 训练。
-Agent 只需实现 set_system_prompt(prompt) + process(input_data)，由 as_rollout 自动包装；
-使用时 agent.set_system_prompt(prompt) 后 agent(input_data) 单参当作函数用。
+算法只接受一个 (input_data, system_prompt) -> output 的函数；将 Agent 包成该函数后传入即可。
 """
 import os
 from dataset import load_dataset_from_json
@@ -15,13 +14,20 @@ BASE_URL = "https://api.deepseek.com"
 DATASET_PATH = "data/sample_send_cargo_data.json"
 OPTIMIZED_PROMPT_PATH = "optimized_prompt.txt"
 
-initial_system_prompt = """抽取装货地点、卸货地点、货物名称。"""
-cargo_agent = CargoAgent(system_prompt=initial_system_prompt, model_name=LLM_MODEL, api_key=API_KEY, base_url=BASE_URL)
+system_prompt = """抽取装货地点、卸货地点、货物名称。"""
+agent = CargoAgent(system_prompt=system_prompt, model_name=LLM_MODEL, api_key=API_KEY, base_url=BASE_URL)
+
+# 不管agent内部如何实现，只需实例化agent，然后实现以下函数即可。算法只接受 (input_data, system_prompt) -> output 的函数
+def rollout(input_data, system_prompt):
+    agent.system_prompt = system_prompt
+    result = agent._run(input_data)
+    return result
+
 
 print("=" * 60)
-print("Creating Agent (set_system_prompt + process，使用时 agent(input_data) 单参)")
+print("Rollout: (input_data, system_prompt) -> output，算法只接受此函数")
 print("=" * 60)
-print(f"Initial System Prompt: '{initial_system_prompt[:60]}...'")
+print(f"Initial System Prompt: '{system_prompt[:60]}...'")
 
 # Load dataset
 print("\n" + "=" * 60)
@@ -33,12 +39,12 @@ print("\nExample items (input/output keys):")
 for i, item in enumerate(dataset[:3], 1):
     print(f"  {i}. input keys: {list(item.get('input', {}).keys()) if isinstance(item.get('input'), dict) else '...'}, output: {str(item.get('output', ''))[:50]}...")
 
-# APO optimizer（传入 agent，内部 as_rollout 将 set_system_prompt+process 包装为两参调用）
+# APO 优化器只接受 (input_data, system_prompt) -> output 的函数
 print("\n" + "=" * 60)
 print("Initializing APO Optimizer")
 print("=" * 60)
 optimizer = APOOptimizerAgent(
-    agent=cargo_agent,
+    rollout=rollout,
     dataset=dataset,
     llm_model_name=LLM_MODEL,
     api_key=API_KEY,
@@ -66,7 +72,7 @@ print("=" * 60)
 
 try:
     best_prompt, best_score, history = optimizer.optimize(
-        initial_prompt=initial_system_prompt,
+        initial_prompt=system_prompt,
         num_iterations=num_iterations,
         num_candidates=num_candidates,
         batch_size=batch_size,
@@ -93,15 +99,14 @@ try:
             prompt = entry.get("prompt", "")
             print(f"  Iteration {iteration}: Score={score:.4f}, Prompt='{prompt[:70]}...'")
 
-    # 使用：set_system_prompt 后 agent(input_data) 单参当作函数用
+    # 使用 函数(input_data, best_prompt) 测试
     print("\n" + "=" * 60)
-    print("Testing Optimized Agent")
+    print("Testing Optimized Prompt")
     print("=" * 60)
-    cargo_agent.set_system_prompt(best_prompt)
     print(f"Optimized System Prompt: '{best_prompt}'")
-    print("\nTest Results on sample items (agent(input_data)):")
+    print("\nTest Results (rollout(input_data, best_prompt)):")
     for i, item in enumerate(dataset[:3], 1):
-        output = cargo_agent(item["input"])
+        output = rollout(item["input"], best_prompt)
         print(f"\n  Item {i}:")
         print(f"    Input: {item['input']}")
         print(f"    Expected: {item['output']}")

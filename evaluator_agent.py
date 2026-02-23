@@ -1,6 +1,6 @@
 """
-Agent Evaluator: Evaluates agent performance on a dataset.
-Dataset: list of dicts with "input" and "output" keys. Agent 只接收 input，算法用 output 评估。
+Agent Evaluator: Evaluates rollout performance on a dataset.
+Dataset: list of dicts with "input" and "output" keys. 只接受 Rollout 函数 (input_data, system_prompt)->output。
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
@@ -11,21 +11,21 @@ from typing import Any, List, Dict
 
 class AgentEvaluator:
     """
-    Evaluates an agent's performance on a dataset.
+    Evaluates a rollout's performance on a dataset.
     Uses LLM-based evaluation to score outputs against expected output.
     """
 
-    def __init__(self, agent, llm_model_name="gpt-3.5-turbo", api_key=None, base_url=None,
+    def __init__(self, rollout, llm_model_name="gpt-3.5-turbo", api_key=None, base_url=None,
                  reward_prompt_path="reward.txt"):
         """
         Args:
-            agent: 可调用 (input_data, system_prompt) -> output
+            rollout: 可调用 (input_data, system_prompt) -> output，内部只调用 rollout(input_data, current_prompt)
             llm_model_name: Name of the LLM model for evaluation
             api_key: API key for the LLM service
             base_url: Base URL for the LLM API
             reward_prompt_path: Path to the reward evaluation prompt template
         """
-        self.agent = agent
+        self.agent = rollout  # 内部仍用 self.agent 调用，即 rollout(input_data, current_prompt)
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model_name = llm_model_name
         self.reward_prompt_template = self._load_reward_prompt(reward_prompt_path)
