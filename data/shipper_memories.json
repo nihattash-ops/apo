@@ -1,0 +1,102 @@
+[
+    {
+        "shipper_id": "260216",
+        "user_messages": "发一票到新疆的货",
+        "shipping_info": {
+            "start": "上海浦东区",
+            "end": "新疆伊宁市",
+            "cargo_name": "塑料颗粒"
+        },
+        "memory": "货主曾经从上海浦东区到新疆伊宁市发过塑料颗粒。"
+    },
+    {
+        "shipper_id": "260217",
+        "user_messages": "发一票到广州的货",
+        "shipping_info": {
+            "start": "新疆伊宁市",
+            "end": "广州天河区",
+            "cargo_name": "钢铁"
+        },
+        "memory": "货主曾经从新疆伊宁市到广州天河区发过钢铁。"
+    },
+    {
+        "shipper_id": "260218",
+        "user_messages": "发一票到北京的货",
+        "shipping_info": {
+            "start": "广州天河区",
+            "end": "北京朝阳区",
+            "cargo_name": "电子产品"
+        },
+        "memory": "货主曾经从广州天河区到北京朝阳区发过电子产品。"
+    },
+    {
+        "shipper_id": "260219",
+        "user_messages": "发一票到深圳的货",
+        "shipping_info": {
+            "start": "北京朝阳区",
+            "end": "深圳南山区",
+            "cargo_name": "服装"
+        },
+        "memory": "货主曾经从北京朝阳区到深圳南山区发过服装。"
+    },
+    {
+        "shipper_id": "260220",
+        "user_messages": "发一票到成都的货",
+        "shipping_info": {
+            "start": "深圳南山区",
+            "end": "成都武侯区",
+            "cargo_name": "家具"
+        },
+        "memory": "货主曾经从深圳南山区到成都武侯区发过家具。"
+    },
+    {
+        "shipper_id": "260221",
+        "user_messages": "发一票到重庆的货",
+        "shipping_info": {
+            "start": "成都武侯区",
+            "end": "重庆渝中区",
+            "cargo_name": "食品"
+        },
+        "memory": "货主曾经从成都武侯区到重庆渝中区发过食品。"
+    },
+    {
+        "shipper_id": "260222",
+        "user_messages": "发一票到武汉的货",
+        "shipping_info": {
+            "start": "重庆渝中区",
+            "end": "武汉洪山区",
+            "cargo_name": "机械设备"
+        },
+        "memory": "货主曾经从重庆渝中区到武汉洪山区发过机械设备。"
+    },
+    {
+        "shipper_id": "260223",
+        "user_messages": "发一票到西安的货",
+        "shipping_info": {
+            "start": "武汉洪山区",
+            "end": "西安碑林区",
+            "cargo_name": "汽车零部件"
+        },
+        "memory": "货主曾经从武汉洪山区到西安碑林区发过汽车零部件。"
+    },
+    {
+        "shipper_id": "260224",
+        "user_messages": "发一票到南京的货",
+        "shipping_info": {
+            "start": "西安碑林区",
+            "end": "南京玄武区",
+            "cargo_name": "化工原料"
+        },
+        "memory": "货主曾经从西安碑林区到南京玄武区发过化工原料。"
+    },
+    {
+        "shipper_id": "260225",
+        "user_messages": "发一票到杭州的货",
+        "shipping_info": {
+            "start": "南京玄武区",
+            "end": "杭州西湖区",
+            "cargo_name": "电子元件"
+        },
+        "memory": "货主曾经从南京玄武区到杭州西湖区发过电子元件。"
+    }
+]

@@ -1,8 +1,24 @@
-# Environment
+# API key / env
+api_key.sh
 .env
+.env.*
+*.local
+bin/
 
-# Byte-compiled
+# Python
 __pycache__/
-
-# Virtual env
+*.py[cod]
+*$py.class
 .venv/
+venv/
+env/
+
+# Output
+optimized_prompt.txt
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*.swo

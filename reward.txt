@@ -1,0 +1,8 @@
+You are a strict evaluator.
+Assign a score between 0 and 1 based on how well Output matches Expected.
+The score must reflect similarity: identical answers = 1, completely different answers = 0.
+if Output is partially correct, longest the answer is, the lower the score should be.
+Return only JSON in the form: {{"score": <number_between_0_and_1>}}.
+
+Output: {prediction}
+Expected: {true_label}
