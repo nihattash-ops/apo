@@ -1,10 +1,11 @@
 """
 货运 Agent APO 训练。
-算法只接受一个 (input_data, system_prompt) -> output 的函数；将 Agent 包成该函数后传入即可。
+算法只接受 (input_data, system_prompt) -> output 的 rollout；可用 make_rollout(agent) 或手写函数包装任意 Agent。
 """
 import os
 from dataset import load_dataset_from_json
 from apo_optimizer_agent import APOOptimizerAgent
+from apo_protocols import make_rollout
 from cargo_agent import CargoAgent
 
 # Configuration
@@ -17,11 +18,13 @@ OPTIMIZED_PROMPT_PATH = "optimized_prompt.txt"
 system_prompt = """抽取装货地点、卸货地点、货物名称。"""
 agent = CargoAgent(system_prompt=system_prompt, model_name=LLM_MODEL, api_key=API_KEY, base_url=BASE_URL)
 
-# 不管agent内部如何实现，只需实例化agent，然后实现以下函数即可。算法只接受 (input_data, system_prompt) -> output 的函数
-def rollout(input_data, system_prompt):
-    agent.system_prompt = system_prompt
-    result = agent._run(input_data)
-    return result
+# 方式一：使用 make_rollout，适合任何具有 system_prompt 属性 + _run(input_data) 的 Agent
+rollout = make_rollout(agent, system_prompt_attr="system_prompt", run_method="_run")
+
+# 方式二：手写 rollout（算法同样接受）
+# def rollout(input_data, system_prompt):
+#     agent.system_prompt = system_prompt
+#     return agent._run(input_data)
 
 
 print("=" * 60)

@@ -1,34 +1,48 @@
 """
 Agent Evaluator: Evaluates rollout performance on a dataset.
-Dataset: list of dicts with "input" and "output" keys. 只接受 Rollout 函数 (input_data, system_prompt)->output。
+支持多种数据形态（可配置 input/output 键名）、可选自定义 reward 函数、rollout 透传 kwargs。
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import random
 from openai import OpenAI
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional, Callable
+
+from apo_protocols import get_input_from_item, get_output_from_item
 
 
 class AgentEvaluator:
     """
     Evaluates a rollout's performance on a dataset.
-    Uses LLM-based evaluation to score outputs against expected output.
+    Uses LLM-based evaluation by default, or a custom reward_fn if provided.
     """
 
     def __init__(self, rollout, llm_model_name="gpt-3.5-turbo", api_key=None, base_url=None,
-                 reward_prompt_path="reward.txt"):
+                 reward_prompt_path="reward.txt",
+                 input_key: str = "input",
+                 output_key: str = "output",
+                 reward_fn: Optional[Callable[[Any, Any, Any], float]] = None,
+                 rollout_kwargs: Optional[Dict[str, Any]] = None):
         """
         Args:
-            rollout: 可调用 (input_data, system_prompt) -> output，内部只调用 rollout(input_data, current_prompt)
-            llm_model_name: Name of the LLM model for evaluation
+            rollout: 可调用 (input_data, system_prompt, **kwargs) -> output
+            llm_model_name: Name of the LLM model for evaluation（reward_fn 为 None 时使用）
             api_key: API key for the LLM service
             base_url: Base URL for the LLM API
-            reward_prompt_path: Path to the reward evaluation prompt template
+            reward_prompt_path: Path to the reward evaluation prompt template（reward_fn 为 None 时使用）
+            input_key: 数据条中「输入」的键名（dict 或 object 属性名）
+            output_key: 数据条中「期望输出」的键名
+            reward_fn: 可选。若提供，则用 reward_fn(output, expected_output, item) 打分，不再调用 LLM
+            rollout_kwargs: 可选。调用 rollout 时透传的额外参数字典
         """
-        self.agent = rollout  # 内部仍用 self.agent 调用，即 rollout(input_data, current_prompt)
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.agent = rollout
+        self.client = OpenAI(api_key=api_key, base_url=base_url) if api_key else None
         self.model_name = llm_model_name
-        self.reward_prompt_template = self._load_reward_prompt(reward_prompt_path)
+        self.reward_prompt_template = self._load_reward_prompt(reward_prompt_path) if not reward_fn else ""
+        self.input_key = input_key
+        self.output_key = output_key
+        self.reward_fn = reward_fn
+        self.rollout_kwargs = rollout_kwargs or {}
 
     def _load_reward_prompt(self, path):
         """Load reward prompt template from file."""
@@ -46,20 +60,23 @@ class AgentEvaluator:
                 "Output: {prediction}\nExpected: {true_label}"
             )
 
-    def _evaluate_output(self, output: Any, expected_output: Any):
+    def _evaluate_output(self, output: Any, expected_output: Any, item: Any = None):
         """
-        Evaluate the agent's output against the expected output using LLM.
-        Returns a score between 0 and 1.
+        Evaluate the agent's output against the expected output.
+        If reward_fn is set, use it; otherwise use LLM. Returns a score between 0 and 1.
         """
         if output is None:
             return 0.0
+        if self.reward_fn is not None:
+            return float(self.reward_fn(output, expected_output, item or {}))
         pred_str = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
         expect_str = expected_output if isinstance(expected_output, str) else json.dumps(expected_output, ensure_ascii=False)
         evaluation_prompt = self.reward_prompt_template.format(
             prediction=pred_str,
             true_label=expect_str
         )
-
+        if not self.client:
+            return 0.0
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
@@ -71,28 +88,25 @@ class AgentEvaluator:
             )
             result = json.loads(response.choices[0].message.content.strip())
             score = result.get("score", 0.0)
-
             if isinstance(score, (int, float)) and 0.0 <= score <= 1.0:
                 return float(score)
             return 0.0
-
         except Exception as e:
             print(f"Error evaluating output: {e}")
             return 0.0
 
     def _process_and_evaluate_one(self, item, current_prompt: str):
         """
-        Rollout：用 current_prompt 调用 agent(input_data, current_prompt)，再评估。
+        Rollout：用 current_prompt 调用 rollout(input_data, current_prompt, **rollout_kwargs)，再评估。
         Returns (output, score).
         """
-        if isinstance(item, dict):
-            input_data = item.get("input")
-            expected_output = item.get("output")
-        else:
-            input_data = getattr(item, "input", None)
-            expected_output = getattr(item, "output", None)
-        output = self.agent(input_data, current_prompt)
-        score = self._evaluate_output(output, expected_output)
+        input_data = get_input_from_item(item, self.input_key)
+        expected_output = get_output_from_item(item, self.output_key)
+        try:
+            output = self.agent(input_data, current_prompt, **self.rollout_kwargs)
+        except TypeError:
+            output = self.agent(input_data, current_prompt)
+        score = self._evaluate_output(output, expected_output, item)
         return output, score
 
     def evaluate_agent_batch(self, dataset_batch: List[Dict[str, Any]], current_prompt: str, max_workers=8):

@@ -1,43 +1,57 @@
 """
 APO Optimizer for Agents: Optimizes agent system prompts using the APO algorithm.
-数据格式：list[dict]，每条必须含 "input" 和 "output"。算法只接受 Rollout 函数 (input_data, system_prompt)->output。
+支持多种数据形态（可配置 input/output 键名）、可选自定义 reward、rollout 透传 kwargs。
 """
 from evaluator_agent import AgentEvaluator
 from prompt_generator import PromptGenerator
 from dataset import load_dataset_from_json
+from apo_protocols import get_output_from_item
 import random
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Optional
 
-# 算法只接受此类型：(input_data, system_prompt) -> output
-Rollout = Callable[[Any, str], Any]
+from apo_protocols import Rollout
 
 
 class APOOptimizerAgent:
     """
     Optimizes agent system prompts using the APO (Automatic Prompt Optimization) algorithm.
-    只接受 rollout 函数，不关心其内部实现。
+    只接受 rollout 函数，不关心其内部实现；可配置数据键名、自定义 reward、rollout 额外参数。
     """
 
     def __init__(self, rollout: Rollout, dataset: List[Dict[str, Any]], llm_model_name="gpt-3.5-turbo",
-                 api_key=None, base_url=None, reward_prompt_path="reward.txt"):
+                 api_key=None, base_url=None, reward_prompt_path="reward.txt",
+                 input_key: str = "input",
+                 output_key: str = "output",
+                 reward_fn: Optional[Callable[[Any, Any, Any], float]] = None,
+                 rollout_kwargs: Optional[Dict[str, Any]] = None):
         """
         Initialize the APO Optimizer.
 
         Args:
-            rollout: 可调用 (input_data, system_prompt) -> output，算法内部只调用此函数
-            dataset: List of dicts, each with "input" and "output" keys
+            rollout: 可调用 (input_data, system_prompt, **kwargs) -> output
+            dataset: List of dicts（或具 input_key/output_key 结构的对象列表）
             llm_model_name: Name of the LLM model for prompt generation and evaluation
             api_key: API key for the LLM service
             base_url: Base URL for the LLM API
-            reward_prompt_path: Path to the reward evaluation prompt template
+            reward_prompt_path: Path to the reward evaluation prompt template（reward_fn 为 None 时使用）
+            input_key: 数据条中「输入」的键名
+            output_key: 数据条中「期望输出」的键名
+            reward_fn: 可选。自定义打分函数 (output, expected_output, item) -> float in [0,1]
+            rollout_kwargs: 可选。调用 rollout 时透传的额外参数
         """
         self._rollout = rollout
+        self.input_key = input_key
+        self.output_key = output_key
         self.evaluator = AgentEvaluator(
             rollout,
             llm_model_name=llm_model_name,
             api_key=api_key,
             base_url=base_url,
-            reward_prompt_path=reward_prompt_path
+            reward_prompt_path=reward_prompt_path,
+            input_key=input_key,
+            output_key=output_key,
+            reward_fn=reward_fn,
+            rollout_kwargs=rollout_kwargs,
         )
         self.generator = PromptGenerator(model_name=llm_model_name, api_key=api_key, base_url=base_url)
         self.dataset = dataset
@@ -47,12 +61,15 @@ class APOOptimizerAgent:
     
     @classmethod
     def from_dataset_path(cls, rollout: Rollout, dataset_path, llm_model_name="gpt-3.5-turbo",
-                         api_key=None, base_url=None, reward_prompt_path="reward.txt"):
+                         api_key=None, base_url=None, reward_prompt_path="reward.txt",
+                         input_key: str = "input", output_key: str = "output",
+                         reward_fn=None, rollout_kwargs=None):
         """
-        Create optimizer by loading dataset from a JSON file (list of dicts with "input" and "output").
+        Create optimizer by loading dataset from a JSON file (list of dicts with input_key and output_key).
         """
         dataset = load_dataset_from_json(dataset_path)
-        return cls(rollout, dataset, llm_model_name, api_key, base_url, reward_prompt_path)
+        return cls(rollout, dataset, llm_model_name, api_key, base_url, reward_prompt_path,
+                   input_key=input_key, output_key=output_key, reward_fn=reward_fn, rollout_kwargs=rollout_kwargs)
     
     def _build_feedback(
         self,
@@ -64,16 +81,17 @@ class APOOptimizerAgent:
     ):
         """
         Build feedback message for prompt generation.
-        dataset 每条为 dict，含 "input" 和 "output"；这里只取 output 作为正确答案样例。
+        使用 output_key 从每条数据取期望输出作为正确答案样例。
         """
         examples = batch if batch is not None else self.dataset
         outputs = []
         for item in examples:
-            if isinstance(item, dict) and "output" in item:
-                outputs.append(str(item["output"]))
+            out = get_output_from_item(item, self.output_key)
+            if out is not None:
+                outputs.append(str(out))
             if len(outputs) >= max_examples:
                 break
-        
+
         outputs_text = "; ".join(outputs) if outputs else "N/A"
         model_outputs = model_outputs or []
         safe_outputs = []
