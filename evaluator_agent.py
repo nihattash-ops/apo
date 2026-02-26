@@ -1,9 +1,11 @@
 """
 Agent Evaluator: Evaluates rollout performance on a dataset.
-支持多种数据形态（可配置 input/output 键名）、可选自定义 reward 函数、rollout 透传 kwargs。
+支持多种数据形态（可配置 input/output 键名）、可选自定义 reward、rollout 透传 kwargs；
+若 rollout 返回 dict 且含 "output"，仅用该字段打分。
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import os
 import random
 from openai import OpenAI
 from typing import Any, List, Dict, Optional, Callable
@@ -78,14 +80,17 @@ class AgentEvaluator:
         if not self.client:
             return 0.0
         try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
+            kwargs = {
+                "model": self.model_name,
+                "messages": [
                     {"role": "system", "content": "You are a strict evaluator."},
                     {"role": "user", "content": evaluation_prompt}
                 ],
-                temperature=0.0
-            )
+                "temperature": 0.0,
+            }
+            if os.environ.get("LLM_NAME") == "qwen":
+                kwargs["extra_body"] = {"result_format": "message"}
+            response = self.client.chat.completions.create(**kwargs)
             result = json.loads(response.choices[0].message.content.strip())
             score = result.get("score", 0.0)
             if isinstance(score, (int, float)) and 0.0 <= score <= 1.0:
@@ -97,17 +102,19 @@ class AgentEvaluator:
 
     def _process_and_evaluate_one(self, item, current_prompt: str):
         """
-        Rollout：用 current_prompt 调用 rollout(input_data, current_prompt, **rollout_kwargs)，再评估。
-        Returns (output, score).
+        Rollout：用 current_prompt 调用 rollout(...)，再评估。
+        若 rollout 返回 dict 且含 "output"，仅用 output 字段打分；仍返回 (raw, score) 供 feedback 使用。
+        Returns (raw_output, score).
         """
         input_data = get_input_from_item(item, self.input_key)
         expected_output = get_output_from_item(item, self.output_key)
         try:
-            output = self.agent(input_data, current_prompt, **self.rollout_kwargs)
+            raw = self.agent(input_data, current_prompt, **self.rollout_kwargs)
         except TypeError:
-            output = self.agent(input_data, current_prompt)
-        score = self._evaluate_output(output, expected_output, item)
-        return output, score
+            raw = self.agent(input_data, current_prompt)
+        output_for_score = raw.get("output", raw) if isinstance(raw, dict) and "output" in raw else raw
+        score = self._evaluate_output(output_for_score, expected_output, item)
+        return raw, score
 
     def evaluate_agent_batch(self, dataset_batch: List[Dict[str, Any]], current_prompt: str, max_workers=8):
         """

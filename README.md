@@ -54,6 +54,8 @@ Reward 模板中占位符 `{prediction}`、`{true_label}` 对应「模型输出�
 ```python
 # 方式一：make_rollout（推荐，适合多数 Agent）
 from apo_protocols import make_rollout
+from apo_optimizer_agent import APOOptimizerAgent
+from dataset import load_dataset_from_json
 agent = YourAgent(system_prompt="...", ...)
 rollout = make_rollout(agent, system_prompt_attr="system_prompt", run_method="_run")
 
@@ -80,18 +82,17 @@ best_prompt, best_score, history = optimizer.optimize(initial_prompt=..., num_it
 ## 项目结构
 
 ```
-├── apo_optimizer_agent.py   # 优化器：rollout + dataset，支持 input_key/output_key、reward_fn、rollout_kwargs
-├── apo_protocols.py         # Rollout 类型、make_rollout、get_input/output_from_item
-├── evaluator_agent.py       # 评估器：rollout + LLM/reward_fn、可配置键名与 rollout_kwargs
-├── prompt_generator.py      # 候选提示词生成
-├── dataset.py               # load_dataset_from_json
-├── reward.txt / cargo_reward.txt   # 评估用 reward 模板
-├── train.py                 # 货运任务示例（使用 make_rollout）
-├── cargo_agent.py           # 货运 Agent 示例
-├── bin/
-│   ├── main_agent.py        # 问答任务示例
-│   └── qa_agent.py          # 问答 Agent 示例
-└── data/                    # 示例数据
+├── apo_optimizer_agent.py   # 优化器：rollout + dataset
+├── apo_protocols.py        # Rollout 类型、make_rollout、get_input/output_from_item
+├── evaluator_agent.py       # 评估器
+├── prompt_generator.py     # 候选提示词生成
+├── dataset.py              # load_dataset_from_json
+├── reward.txt / cargo_reward.txt
+├── train.py                # 货运示例
+├── train_send_cargo.py     # 发货抽取示例
+├── cargo_agent.py
+├── send_cargo_extract_rollout.py
+└── data/
 ```
 
 ---
