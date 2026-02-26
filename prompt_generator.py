@@ -3,6 +3,7 @@ from openai import OpenAI
 from typing import Optional
 
 
+
 class PromptGenerator:
     def __init__(self, model_name="gpt-3.5-turbo", api_key=None, base_url=None,
                  generate_prompt_path: Optional[str] = None):

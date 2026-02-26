@@ -101,8 +101,7 @@ best_prompt, best_score, history = optimizer.optimize(initial_prompt=..., num_it
 
 ```bash
 export APO_API_KEY="your-api-key"
-python train.py              # 货运
-python bin/main_agent.py     # 问答（视路径配置）
+python train.py             
 ```
 
 算法侧不依赖具体 Agent；只要传入的 rollout 满足 `(input_data, system_prompt) -> output` 且数据集与 reward 模板格式一致即可。

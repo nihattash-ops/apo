@@ -182,6 +182,7 @@ class AgentEvaluator:
         print(f"Evaluated agent with score: {average_score:.4f}")
         return average_score
 
+
     def evaluate_agent_with_details(self, dataset: List[Dict[str, Any]], current_prompt: str, batch_size=4, max_workers=8,
                                     shuffle=False, max_examples=5):
         """
