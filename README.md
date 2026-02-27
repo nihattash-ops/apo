@@ -75,7 +75,7 @@ optimizer = APOOptimizerAgent(
 best_prompt, best_score, history = optimizer.optimize(initial_prompt=..., num_iterations=5, num_candidates=3, ...)
 ```
 
-项目中的 `train.py`、`bin/main_agent.py` 为示例：如何用 `make_rollout` 或手写 rollout，以及如何调用 `optimize`。
+项目中的 `train.py`、 为示例：如何用 `make_rollout` 或手写 rollout，以及如何调用 `optimize`。
 
 ---
 
@@ -88,8 +88,8 @@ best_prompt, best_score, history = optimizer.optimize(initial_prompt=..., num_it
 ├── prompt_generator.py     # 候选提示词生成
 ├── dataset.py              # load_dataset_from_json
 ├── reward.txt / cargo_reward.txt
-├── train.py                # 货运示例
-├── train_send_cargo.py     # 发货抽取示例
+├── train.py                
+├── train_send_cargo.py     
 ├── cargo_agent.py
 ├── send_cargo_extract_rollout.py
 └── data/
