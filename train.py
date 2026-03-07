@@ -1,10 +1,11 @@
 """
-货运 Agent APO 训练。
-算法只接受一个 (input_data, system_prompt) -> output 的函数；将 Agent 包成该函数后传入即可。
+Agent APO 训练。
+算法只接受 (input_data, system_prompt) -> output 的 rollout；可用 make_rollout(agent) 或手写函数包装任意 Agent。
 """
 import os
 from dataset import load_dataset_from_json
 from apo_optimizer_agent import APOOptimizerAgent
+from apo_protocols import make_rollout
 from cargo_agent import CargoAgent
 
 # Configuration
@@ -13,15 +14,21 @@ LLM_MODEL = "deepseek-chat"
 BASE_URL = "https://api.deepseek.com"
 DATASET_PATH = "data/sample_send_cargo_data.json"
 OPTIMIZED_PROMPT_PATH = "optimized_prompt.txt"
+REWARD_PATH = "cargo_reward.txt"
+GENERATE_PROMPT_PATH = "cargo_generate_prompt.txt"
+FEEDBACK_TEMPLATE_PATH = "cargo_feedback_template.txt"
+LOG_PATH = "log.txt"
 
 system_prompt = """抽取装货地点、卸货地点、货物名称。"""
 agent = CargoAgent(system_prompt=system_prompt, model_name=LLM_MODEL, api_key=API_KEY, base_url=BASE_URL)
 
-# 不管agent内部如何实现，只需实例化agent，然后实现以下函数即可。算法只接受 (input_data, system_prompt) -> output 的函数
-def rollout(input_data, system_prompt):
-    agent.system_prompt = system_prompt
-    result = agent._run(input_data)
-    return result
+# 方式一：使用 make_rollout，适合任何具有 system_prompt 属性 + _run(input_data) 的 Agent
+rollout = make_rollout(agent, system_prompt_attr="system_prompt", run_method="_run")
+
+# 方式二：手写 rollout（算法同样接受）
+# def rollout(input_data, system_prompt):
+#     agent.system_prompt = system_prompt
+#     return agent._run(input_data)
 
 
 print("=" * 60)
@@ -43,15 +50,19 @@ for i, item in enumerate(dataset[:3], 1):
 print("\n" + "=" * 60)
 print("Initializing APO Optimizer")
 print("=" * 60)
+
 optimizer = APOOptimizerAgent(
     rollout=rollout,
     dataset=dataset,
     llm_model_name=LLM_MODEL,
     api_key=API_KEY,
     base_url=BASE_URL,
-    reward_prompt_path="cargo_reward.txt",
+    reward_prompt_path=REWARD_PATH,
+    input_key="input",
+    output_key="output",
+    generate_prompt_path=GENERATE_PROMPT_PATH if os.path.isfile(GENERATE_PROMPT_PATH) else None,
+    feedback_template_path=FEEDBACK_TEMPLATE_PATH if os.path.isfile(FEEDBACK_TEMPLATE_PATH) else None,
 )
-
 num_iterations = 2
 num_candidates = 3
 batch_size = 8
@@ -71,6 +82,16 @@ print("Starting APO Optimization")
 print("=" * 60)
 
 try:
+    # best_prompt, best_score, history = optimizer.optimize(
+    #     initial_prompt=system_prompt,
+    #     num_iterations=num_iterations,
+    #     num_candidates=num_candidates,
+    #     batch_size=batch_size,
+    #     shuffle=shuffle,
+    #     update_per_batch=update_per_batch,
+    #     max_workers=max_workers,
+    # )
+
     best_prompt, best_score, history = optimizer.optimize(
         initial_prompt=system_prompt,
         num_iterations=num_iterations,
@@ -79,6 +100,8 @@ try:
         shuffle=shuffle,
         update_per_batch=update_per_batch,
         max_workers=max_workers,
+        prompt_log_path=LOG_PATH,
+        feedback_max_examples=5,
     )
 
     # Summary & save
