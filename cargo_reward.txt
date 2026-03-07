@@ -1,0 +1,11 @@
+你是一名严格的评估员。
+根据 Output 与 Expected 的匹配程度，在 0 到 1 之间给出一个分数。
+分数必须反映相似度：
+答案完全一致，并按Expected的格式输出 = 1
+答案完全不同货并非按照规定的格式输出 = 0
+部分一致时，需要评估Output和Expected直接的相似度，相似度越高，评分越高
+只返回 JSON 格式：
+{{"score": <number_between_0_and_1>}}.
+
+Output: {prediction}
+Expected: {true_label}
